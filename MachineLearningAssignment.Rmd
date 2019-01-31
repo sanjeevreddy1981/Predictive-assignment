@@ -1,0 +1,88 @@
+---
+title: "Machine Learning Assignment"
+author: "Sanjeev Reddy"
+date: "January 29, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cache = TRUE, message=FALSE}
+# load packag
+library(caret)
+# download data 
+if(!file.exists("pml-training.csv")){
+	download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", 
+		destfile = "pml-training.csv", method = "curl")
+}
+if(!file.exists("pml-testing.csv")){
+	download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", 
+		destfile = "pml-testing.csv", method = "curl")
+}
+
+
+# Load the training and Test data
+trainData <- read.csv("pml-training.csv", header = TRUE, na.strings=c("","NA", "#DIV/0!"))
+testData <- read.csv("pml-testing.csv", header = TRUE, na.strings=c("","NA", "#DIV/0!"))
+#train set
+dim(trainData)
+#test set
+dim(testData)
+```
+
+
+#Lets clean the variables with Nearly Zero Variance using nearZerovar function
+```{r cache = TRUE}
+NZV <- nearZeroVar(trainData)
+trainData <- trainData[, -NZV]
+testData  <- testData[, -NZV]
+dim(trainData)
+```
+
+
+#The last step reduces to 124 columns which will be further used
+#As columns with NA will not be used, removing NA columns as well.
+
+```{r cache = TRUE}
+AllNA    <- sapply(trainData, function(x) mean(is.na(x))) > 0.95
+trainData <- trainData[, AllNA==FALSE]
+testData  <- testData[, AllNA==FALSE]
+trainData <- trainData[, -(1:5)]
+testData  <- testData[, -(1:5)]
+#train set
+dim(trainData)
+#test set
+dim(testData)
+```
+
+#Partition the training data
+```{r cache = TRUE}
+Index <- createDataPartition(trainData$classe, p=0.75)[[1]]
+Parition_training_data <- trainData[Index,]
+Partition_crosstrain_data <- trainData[-Index,]
+```
+#Starting with  DEcision Tree Algorithm
+
+```{r cache = TRUE}
+decisionTreeMod <- train(classe ~., method='rpart', data=Parition_training_data)
+decisionTreePrediction <- predict(decisionTreeMod, Partition_crosstrain_data)
+confusionMatrix(Partition_crosstrain_data$classe, decisionTreePrediction)
+```
+
+#Now Lets check Random Forest Algorithm
+```{r cache = TRUE}
+rfMod <- train(classe ~., method='rf', data=Parition_training_data, ntree=128)
+rfPrediction <- predict(rfMod, Partition_crosstrain_data)
+confusionMatrix(Partition_crosstrain_data$classe, rfPrediction)
+```
+
+# Now,predicting test set using Random Forest algorithm
+```{r cache = TRUE}
+predict(rfMod, testData)
+```
+#Conclusion  
+#Quite clearly Random Forest's algorithm accuracy (99%) is  way better than  Decision tree algorithm(60%)
+
+
